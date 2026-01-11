@@ -6,14 +6,21 @@ namespace DocumentVerificationSystemApi.Service
 	public class GeminiServices
 	{
 		// API Anahtarını buraya yazıyoruz
-		private readonly string _apiKey = "AIzaSyBVzVimzmF3Vyfx3k6Lzhv8zIq16dw6tB4";
+		private readonly string _apiKey = "";
 		private readonly GoogleAI _googleAI;
 		private readonly GenerativeModel _model;
 
-		public GeminiServices()
+		public GeminiServices(IConfiguration configuration)
 		{
+
+			_apiKey = configuration["GeminiApiKey"];
+
+			if (string.IsNullOrEmpty(_apiKey))
+				throw new Exception("GeminiApiKey bulunamadı");
+
 			// Servis başlatıldığında GoogleAI nesnesini oluşturur
 			_googleAI = new GoogleAI(_apiKey);
+
 
 			// Kullanacağın modeli seçiyoruz (Flash öğrenci dostudur)
 			_model = _googleAI.GenerativeModel(Model.Gemini25Flash);
