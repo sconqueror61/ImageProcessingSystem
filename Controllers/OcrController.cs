@@ -35,7 +35,6 @@ namespace DocumentVerificationSystemApi.Controllers
 				return BadRequest($"Desteklenmeyen dosya formatı. İzin verilen formatlar: {string.Join(", ", allowedExtensions)}");
 			}
 
-			// IFormFile'dan doğrudan byte array oku
 			using var memoryStream = new MemoryStream();
 			await request.File.CopyToAsync(memoryStream);
 			var imageBytes = memoryStream.ToArray();
