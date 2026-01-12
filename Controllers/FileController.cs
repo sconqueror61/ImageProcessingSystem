@@ -1,6 +1,5 @@
 using DocumentVerificationSystemApi.Models;
 using DocumentVerificationSystemApi.Service;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DocumentVerificationSystemApi.Controllers
@@ -16,9 +15,6 @@ namespace DocumentVerificationSystemApi.Controllers
 			_fileService = fileService;
 		}
 
-		/// <summary>
-		/// Dosya yükler ve OCR işlemi başlatır
-		/// </summary>
 		[HttpPost("upload")]
 		[Consumes("multipart/form-data")]
 		public async Task<IActionResult> UploadFile([FromForm] FileUploadRequest request)
@@ -38,9 +34,6 @@ namespace DocumentVerificationSystemApi.Controllers
 			return Ok(result);
 		}
 
-		/// <summary>
-		/// Dosya bilgilerini getirir
-		/// </summary>
 		[HttpGet("{fileId}")]
 		public async Task<IActionResult> GetFile(Guid fileId, [FromQuery] Guid tanetId)
 		{
@@ -67,9 +60,6 @@ namespace DocumentVerificationSystemApi.Controllers
 			});
 		}
 
-		/// <summary>
-		/// Tenant'a ait tüm dosyaları listeler
-		/// </summary>
 		[HttpGet("tenant/{tanetId}")]
 		public async Task<IActionResult> GetFilesByTenant(Guid tanetId)
 		{
@@ -90,9 +80,6 @@ namespace DocumentVerificationSystemApi.Controllers
 			return Ok(fileList);
 		}
 
-		/// <summary>
-		/// Dosya içeriğini indirir
-		/// </summary>
 		[HttpGet("{fileId}/download")]
 		public async Task<IActionResult> DownloadFile(Guid fileId, [FromQuery] Guid tanetId)
 		{
@@ -106,9 +93,6 @@ namespace DocumentVerificationSystemApi.Controllers
 			return File(file.FileData, "application/octet-stream", file.FileName);
 		}
 
-		/// <summary>
-		/// Dosyayı siler (soft delete)
-		/// </summary>
 		[HttpDelete("{fileId}")]
 		public async Task<IActionResult> DeleteFile(Guid fileId, [FromQuery] Guid tanetId)
 		{

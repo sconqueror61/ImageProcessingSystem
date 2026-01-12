@@ -14,9 +14,6 @@ public class TenantService
 		_context = context;
 	}
 
-	/// <summary>
-	/// Yeni tenant kaydı oluşturur
-	/// </summary>
 	public async Task<TenantRegisterResponse> RegisterAsync(TenantRegisterRequest request)
 	{
 		try

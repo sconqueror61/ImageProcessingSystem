@@ -20,14 +20,11 @@ public class AuthenticationService
 		_configuration = configuration;
 	}
 
-	/// <summary>
-	/// Kullanıcı giriş işlemini gerçekleştirir
-	/// </summary>
 	public async Task<LoginResponse> LoginAsync(LoginRequest request)
 	{
 		try
 		{
-			// Email ile kullanıcıyı bul (Tanet bilgisini de yükle)
+
 			var user = await _context.Users
 				.Include(u => u.Tanet)
 				.FirstOrDefaultAsync(u => u.Email == request.Email && !u.IsDeleted);
@@ -41,7 +38,6 @@ public class AuthenticationService
 				};
 			}
 
-			// Şifre kontrolü
 			if (!BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
 			{
 				return new LoginResponse
@@ -78,9 +74,6 @@ public class AuthenticationService
 		}
 	}
 
-	/// <summary>
-	/// JWT token oluşturur
-	/// </summary>
 	private string GenerateJwtToken(UserEntity user)
 	{
 		var jwtSettings = _configuration.GetSection("JwtSettings");

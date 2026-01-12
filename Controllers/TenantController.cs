@@ -15,9 +15,6 @@ namespace DocumentVerificationSystemApi.Controllers
 			_tenantService = tenantService;
 		}
 
-		/// <summary>
-		/// Yeni tenant kaydı oluşturur
-		/// </summary>
 		[HttpPost("register")]
 		public async Task<IActionResult> Register([FromBody] TenantRegisterRequest request)
 		{
