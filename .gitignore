@@ -6,7 +6,8 @@ obj/
 # User specific
 *.user
 
-# Secrets
-Key/
 appsettings.Development.json
 appsettings.json
+
+# Secrets
+Key/

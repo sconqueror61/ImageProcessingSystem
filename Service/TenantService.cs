@@ -82,12 +82,10 @@ public class TenantService
 			};
 		}
 	}
-
-	/// <summary>
-	/// Tenant ID ile tenant'ı getirir
-	/// </summary>
-	public async Task<TanetEntity> GetByIdAsync(Guid tenantId)
+	public async Task<List<TanetEntity>> GetTenantsAsync()
 	{
-		return await _context.Tanets.FirstOrDefaultAsync(t => t.Id == tenantId);
+		return await _context.Tanets
+			.Select(t => new TanetEntity { Id = t.Id, Name = t.Name, Adress = t.Adress })
+			.ToListAsync();
 	}
 }

@@ -107,9 +107,6 @@ public class AuthenticationService
 		return new JwtSecurityTokenHandler().WriteToken(token);
 	}
 
-	/// <summary>
-	/// Yeni kullanıcı kaydı oluşturur
-	/// </summary>
 	public async Task<UserRegisterResponse> RegisterAsync(UserRegisterRequest request)
 	{
 		try

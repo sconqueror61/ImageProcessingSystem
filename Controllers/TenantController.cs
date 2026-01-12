@@ -32,5 +32,12 @@ namespace DocumentVerificationSystemApi.Controllers
 
 			return Ok(result);
 		}
+
+		[HttpGet("list")]
+		public async Task<IActionResult> GetTenants()
+		{
+			var tenants = await _tenantService.GetTenantsAsync();
+			return Ok(tenants);
+		}
 	}
 }
