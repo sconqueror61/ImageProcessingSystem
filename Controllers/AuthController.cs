@@ -15,9 +15,6 @@ namespace DocumentVerificationSystemApi.Controllers
 			_authenticationService = authenticationService;
 		}
 
-		/// <summary>
-		/// Kullanıcı giriş işlemi yapar
-		/// </summary>
 		[HttpPost("login")]
 		public async Task<IActionResult> Login([FromBody] LoginRequest request)
 		{
@@ -36,9 +33,6 @@ namespace DocumentVerificationSystemApi.Controllers
 			return Ok(result);
 		}
 
-		/// <summary>
-		/// Yeni kullanıcı kaydı oluşturur
-		/// </summary>
 		[HttpPost("register")]
 		public async Task<IActionResult> Register([FromBody] UserRegisterRequest request)
 		{

@@ -1,12 +1,26 @@
 using DocumentVerificationSystemApi.Data;
 using DocumentVerificationSystemApi.Service;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+	options.AddPolicy("AllowAngular",
+		policy =>
+		{
+			policy.WithOrigins("http://localhost:4200") // Angular uygulamanýzýn adresi
+				  .AllowAnyHeader()
+				  .AllowAnyMethod();
+		});
+});
+
+var app = builder.Build();
+
+app.UseCors("AllowAngular");
 // Add services to the container.
 
 builder.Services.AddControllers();
