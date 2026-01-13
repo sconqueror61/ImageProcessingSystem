@@ -1,7 +1,9 @@
 using DocumentVerificationSystemApi.Data;
 using DocumentVerificationSystemApi.Entity;
 using DocumentVerificationSystemApi.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace DocumentVerificationSystemApi.Service;
 
@@ -10,43 +12,32 @@ public class FileService
 	private readonly AppDbContext _context;
 	private readonly OcrService _ocrService;
 	private readonly GeminiServices _geminiServices;
-
-	public FileService(AppDbContext context, OcrService ocrService, GeminiServices geminiServices)
+	private readonly IHttpContextAccessor _httpContextAccessor;
+	public FileService(AppDbContext context, OcrService ocrService, GeminiServices geminiServices, IHttpContextAccessor httpContextAccessor)
 	{
 		_context = context;
 		_ocrService = ocrService;
 		_geminiServices = geminiServices;
+		_httpContextAccessor = httpContextAccessor;
 	}
 
-	/// <summary>
-	/// Dosya yükler ve OCR işlemi yapar
-	/// </summary>
+	[Authorize]
 	public async Task<FileUploadResponse> UploadFileAsync(FileUploadRequest request)
 	{
 		try
 		{
-			// Validasyon
+
 			if (request.File == null || request.File.Length == 0)
 			{
-				return new FileUploadResponse
-				{
-					Success = false,
-					Message = "Dosya gönderilmedi"
-				};
+				return new FileUploadResponse { Success = false, Message = "Dosya gönderilmedi" };
 			}
 
-			// Tenant kontrolü
 			var tenant = await _context.Tanets.FirstOrDefaultAsync(t => t.Id == request.TanetId);
 			if (tenant == null)
 			{
-				return new FileUploadResponse
-				{
-					Success = false,
-					Message = "Geçersiz tenant ID"
-				};
+				return new FileUploadResponse { Success = false, Message = "Geçersiz tenant ID" };
 			}
 
-			// Dosya formatını kontrol et
 			var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".pdf" };
 			var fileExtension = Path.GetExtension(request.File.FileName).ToLowerInvariant();
 			if (!allowedExtensions.Contains(fileExtension))
@@ -54,26 +45,16 @@ public class FileService
 				return new FileUploadResponse
 				{
 					Success = false,
-					Message = $"Desteklenmeyen dosya formatı. İzin verilen formatlar: {string.Join(", ", allowedExtensions)}"
+					Message = $"Desteklenmeyen format. İzin verilenler: {string.Join(", ", allowedExtensions)}"
 				};
 			}
 
-			// Dosya boyutu kontrolü (100 MB limit)
-			const long maxFileSize = 100 * 1024 * 1024; // 100 MB
+			const long maxFileSize = 100 * 1024 * 1024;
 			if (request.File.Length > maxFileSize)
 			{
-				return new FileUploadResponse
-				{
-					Success = false,
-					Message = "Dosya boyutu 100 MB'dan büyük olamaz"
-				};
+				return new FileUploadResponse { Success = false, Message = "Dosya boyutu 100 MB'dan büyük olamaz" };
 			}
 
-
-			// OCR işlemi yap
-
-
-			// Dosya içeriğini oku
 			byte[] fileData;
 			using (var memoryStream = new MemoryStream())
 			{
@@ -82,22 +63,28 @@ public class FileService
 			}
 
 			var text = await _ocrService.ReadTextAsync(fileData);
-			var result = await _geminiServices.SoruSorAsync(text + "bu metni satır satır parçalayarak anlamlı bir yapıya getir.");
+			var result = await _geminiServices.SoruSorAsync(text + " bu metni satır satır parçalayarak anlamlı bir yapıya getir.");
 
-			// Yeni dosya kaydı oluştur
+			// 7. Kullanıcıyı Bulma
+			var userIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+			Guid userId = Guid.Parse(userIdClaim ?? Guid.Empty.ToString());
+
 			var uploadFile = new UploadFilesEntity
 			{
 				Id = Guid.NewGuid(),
+				CreaterId = userId,
+
 				OcrText = text,
-				OcrProcessedDate = DateTime.UtcNow,
 				AnalysisResult = result,
+				OcrCompleted = true,
+				OcrProcessedDate = DateTime.UtcNow,
+				IsValidDocument = !string.IsNullOrEmpty(text),
+
 				FileName = request.File.FileName,
 				FileExtension = fileExtension,
 				FileSize = request.File.Length,
 				FileData = fileData,
 				TanetId = request.TanetId,
-				OcrCompleted = false,
-				IsValidDocument = false,
 				IsDeleted = false,
 				CreatedDate = DateTime.UtcNow,
 				UpdatedDate = DateTime.UtcNow
@@ -106,13 +93,11 @@ public class FileService
 			_context.UploadFiles.Add(uploadFile);
 			await _context.SaveChangesAsync();
 
-			// OCR işlemini arka planda başlat (async)
-			_ = Task.Run(async () => await ProcessOcrAsync(uploadFile.Id));
-
 			return new FileUploadResponse
 			{
 				Success = true,
-				Message = "Dosya başarıyla yüklendi. OCR işlemi başlatıldı.",
+				Message = "Dosya yüklendi ve analiz tamamlandı.",
+
 				File = new DocumentVerificationSystemApi.Models.FileInfo
 				{
 					Id = uploadFile.Id,
@@ -121,7 +106,8 @@ public class FileService
 					FileSize = uploadFile.FileSize,
 					OcrCompleted = uploadFile.OcrCompleted,
 					IsValidDocument = uploadFile.IsValidDocument,
-					CreatedDate = uploadFile.CreatedDate
+					CreatedDate = uploadFile.CreatedDate,
+					AnalysisResult = result
 				}
 			};
 		}
@@ -134,7 +120,6 @@ public class FileService
 			};
 		}
 	}
-
 	/// <summary>
 	/// OCR işlemini yapar ve sonuçları kaydeder
 	/// </summary>

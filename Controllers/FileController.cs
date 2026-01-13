@@ -1,11 +1,13 @@
 using DocumentVerificationSystemApi.Models;
 using DocumentVerificationSystemApi.Service;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DocumentVerificationSystemApi.Controllers
 {
 	[Route("api/[controller]")]
 	[ApiController]
+	[Authorize]
 	public class FileController : ControllerBase
 	{
 		private readonly FileService _fileService;

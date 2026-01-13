@@ -16,4 +16,6 @@ public class FileInfo
 	public bool OcrCompleted { get; set; }
 	public bool IsValidDocument { get; set; }
 	public DateTime CreatedDate { get; set; }
+
+	public string? AnalysisResult { get; set; }
 }
