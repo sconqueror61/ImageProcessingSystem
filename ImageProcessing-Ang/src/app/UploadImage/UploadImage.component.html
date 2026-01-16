@@ -1,0 +1,52 @@
+<div class="container mt-5">
+  <div class="card shadow p-4">
+    <h2 class="text-center mb-4">AI Document Analysis</h2>
+
+    <div class="mb-3">
+      <label for="fileInput" class="form-label">Select Document (Image)</label>
+      <input type="file" class="form-control" id="fileInput" (change)="onFileSelected($event)" accept="image/*">
+    </div>
+
+    <div *ngIf="imagePreviewUrl" class="mb-4 text-center">
+      <img [src]="imagePreviewUrl" alt="Preview" class="img-fluid rounded border" style="max-height: 300px;">
+    </div>
+
+    <div class="d-grid gap-2">
+      <button class="btn btn-primary" (click)="onUpload()" [disabled]="!selectedFile || uploadProgress !== null">
+        <i class="bi bi-search"></i> Analyze Document
+      </button>
+    </div>
+
+    <div *ngIf="uploadProgress !== null && uploadProgress < 100" class="progress mt-3">
+      <div class="progress-bar progress-bar-striped progress-bar-animated" 
+           role="progressbar" 
+           [style.width.%]="uploadProgress">
+           {{ uploadProgress }}%
+      </div>
+    </div>
+
+    <div *ngIf="uploadMessage" class="alert mt-3" [ngClass]="{'alert-success': showAnalysis, 'alert-info': !showAnalysis && !uploadMessage.startsWith('Hata'), 'alert-danger': uploadMessage.startsWith('Hata')}">
+      {{ uploadMessage }}
+    </div>
+
+    <div *ngIf="showAnalysis" class="mt-4 border-top pt-3">
+      <h4 class="text-success"><i class="bi bi-check-circle"></i> Analysis Complete</h4>
+      
+      <p><strong>File Name:</strong> {{ safeFileName }}</p>
+      <p><strong>Date:</strong> {{ safeCreatedDate | date:'medium' }}</p>
+
+      <div class="bg-light p-3 rounded border mb-3" style="max-height: 400px; overflow-y: auto;">
+        <pre><code>{{ formattedAnalysisResult }}</code></pre>
+      </div>
+
+      <div class="d-grid gap-2">
+        <button class="btn btn-warning fw-bold" (click)="saveToDatabase()" [disabled]="isSaving">
+          <span *ngIf="isSaving" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+          <i class="bi bi-database-check"></i> 
+          {{ isSaving ? 'Saving...' : 'Confirm & Save to Database' }}
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>

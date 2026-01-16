@@ -1,0 +1,23 @@
+.result-container {
+  margin-top: 30px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+}
+
+.analysis-box {
+  background-color: #ffffff;
+  padding: 20px;
+  border-left: 5px solid #4caf50; /* Yeşil bir çizgi ile vurgu */
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.analysis-text {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #333;
+  /* Eğer Gemini satır boşlukları gönderiyorsa korumak için: */
+  white-space: pre-wrap; 
+}

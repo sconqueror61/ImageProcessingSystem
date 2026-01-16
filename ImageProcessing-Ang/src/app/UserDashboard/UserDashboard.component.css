@@ -1,0 +1,38 @@
+/* Container for the row to handle hover context */
+.group-hover {
+    position: relative;
+}
+
+/* Show info when hovering over the row */
+.group-hover:hover .hover-info {
+    display: block;
+    opacity: 1;
+    visibility: visible;
+}
+
+.hover-info {
+    display: none;
+    position: absolute;
+    top: 50%;
+    right: 60px; /* Positioned to the left of the action buttons */
+    transform: translateY(-50%);
+    width: auto;
+    min-width: 150px;
+    z-index: 1050;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease-in-out;
+    font-size: 0.8rem;
+    pointer-events: none; 
+}
+
+.hover-info::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 100%; /* Attached to right edge */
+    transform: translateY(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: transparent transparent transparent #212529; /* Dark arrow matching bg */
+}

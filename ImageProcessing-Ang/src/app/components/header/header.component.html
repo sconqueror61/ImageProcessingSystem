@@ -1,0 +1,60 @@
+<nav class="navbar navbar-expand-lg navbar-dark navbar-custom px-4"
+     [ngClass]="userRole === 'admin' ? 'admin-theme' : 'user-theme'">
+
+  <div class="container-fluid">
+    
+    <a class="navbar-brand fw-bold" href="#">
+      DocumentAI
+      <span *ngIf="userRole === 'admin'" class="badge bg-danger ms-2" style="font-size: 0.7rem;">ADMIN</span>
+      <span *ngIf="userRole !== 'admin'" class="badge bg-info text-dark ms-2" style="font-size: 0.7rem;">USER</span>
+    </a>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        
+        <ng-container *ngIf="userRole !== 'admin'">
+          <li class="nav-item">
+            <a class="nav-link" routerLink="/upload" routerLinkActive="active">
+              <i class="bi bi-cloud-upload me-1"></i> Upload File
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">
+              <i class="bi bi-folder2-open me-1"></i> My Files
+            </a>
+          </li>
+        </ng-container>
+
+        <ng-container *ngIf="userRole === 'admin'">
+          <li class="nav-item">
+            <a class="nav-link" routerLink="/admin-panel/dashboard" routerLinkActive="active">
+              <i class="bi bi-speedometer2 me-1"></i> Dashboard
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" routerLink="/admin-panel/users" routerLinkActive="active">
+              <i class="bi bi-people-fill me-1"></i> Users
+            </a>
+          </li>
+           <li class="nav-item">
+            <a class="nav-link" routerLink="/admin-panel/settings" routerLinkActive="active">
+              <i class="bi bi-gear-fill me-1"></i> Settings
+            </a>
+          </li>
+        </ng-container>
+
+      </ul>
+
+      <div class="d-flex">
+        <button class="logout-btn" (click)="onLogout()">
+          <i class="bi bi-box-arrow-right me-1"></i> Logout
+        </button>
+      </div>
+
+    </div>
+  </div>
+</nav>

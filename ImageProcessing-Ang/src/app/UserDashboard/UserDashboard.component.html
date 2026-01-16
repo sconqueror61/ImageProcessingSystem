@@ -1,0 +1,108 @@
+<div class="container mt-4">
+    <div class="card shadow border-0">
+        
+        <div class="card-header bg-white pt-4 pb-0 d-flex justify-content-between align-items-center">
+            <h3 class="text-primary fw-bold">
+                <i class="bi bi-folder2-open me-2"></i>My Files & Analysis
+            </h3>
+            <span class="badge bg-primary rounded-pill">{{ totalCount }} Records</span>
+        </div>
+
+        <div class="card-body p-0">
+            
+            <div *ngIf="isLoading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted">Loading data...</p>
+            </div>
+
+            <div *ngIf="!isLoading && details.length === 0" class="text-center py-5 text-muted">
+                <i class="bi bi-inbox fs-1"></i>
+                <p class="mt-2">You haven't uploaded any files yet.</p>
+                <a href="/upload" class="btn btn-sm btn-outline-primary">Upload New File</a>
+            </div>
+
+            <div *ngIf="!isLoading && details.length > 0" class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-secondary">
+                        <tr>
+                            <th class="ps-4">Company / Title</th>
+                            <th>Doc. Type</th>
+                            <th>Tax / ID No</th>
+                            <th>Period</th>
+                            <th>Tax Office</th>
+                            <th>Gross Income</th>
+                            <th>Tax Amount</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let item of details" class="group-hover position-relative">
+                            
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark">{{ item.companyName || 'Unknown' }}</div>
+                                <small class="text-muted"><i class="bi bi-paperclip me-1"></i>{{ item.fileName }}</small>
+                            </td>
+
+                            <td>
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info">
+                                    {{ item.documentType || '-' }}
+                                </span>
+                            </td>
+
+                            <td>
+                                <div *ngIf="item.taxNumber">{{ item.taxNumber }} <span class="badge bg-warning bg-opacity-10 text-warning border border-warning">TaxID</span></div>
+                                <div *ngIf="item.tcIdentityNumber">{{ item.tcIdentityNumber }} <span class="badge bg-light text-secondary border ms-1">TC</span></div>
+                            </td>
+
+                            <td><strong>{{ item.taxPeriod || '-' }}</strong></td>
+
+                            <td>{{ item.taxOffice || '-' }}</td>
+
+                            <td class="font-monospace text-success">
+                                {{ item.grossIncome | currency:'TRY':'symbol-narrow':'1.2-2' }}
+                            </td>
+
+                            <td class="font-monospace fw-bold text-danger">
+                                {{ item.accruedTax | currency:'TRY':'symbol-narrow':'1.2-2' }}
+                            </td>
+
+                            <td class="text-end pe-4">
+    							<div class="btn-group">
+       								<button class="btn btn-sm btn-outline-primary" (click)="onDownload(item.fileId, item.fileName)" title="Download">
+            							<i class="fa-solid fa-download fa-lg"></i>
+        							</button>
+        
+        							<button class="btn btn-sm btn-outline-danger" (click)="onDelete(item.fileId)" title="Delete">
+            							<i class="fa-solid fa-trash fa-lg"></i>
+        							</button>
+    							</div>
+    
+    							<div class="hover-info bg-dark text-white p-2 rounded shadow-sm">
+        							<small>Created: {{ item.createdDate | date:'medium' }}</small>
+    							</div>
+							</td>
+
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div *ngIf="totalCount > 10" class="d-flex justify-content-between align-items-center bg-light p-3 border-top">
+                <small class="text-muted">
+                    Showing <strong>{{ (currentPage - 1) * 10 + 1 }}</strong> to 
+                    <strong>{{ currentPage * 10 > totalCount ? totalCount : currentPage * 10 }}</strong> of 
+                    <strong>{{ totalCount }}</strong> entries
+                </small>
+                <div>
+                    <button class="btn btn-sm btn-white border me-2" (click)="prevPage()" [disabled]="currentPage === 1">
+                        <i class="bi bi-chevron-left"></i> Previous
+                    </button>
+                    <button class="btn btn-sm btn-white border" (click)="nextPage()" [disabled]="(currentPage * 10) >= totalCount">
+                        Next <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
