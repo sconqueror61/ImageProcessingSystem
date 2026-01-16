@@ -1,217 +1,236 @@
 using DocumentVerificationSystemApi.Data;
 using DocumentVerificationSystemApi.Entity;
 using DocumentVerificationSystemApi.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using System.Security.Claims;
 
-namespace DocumentVerificationSystemApi.Service;
-
-public class FileService
+namespace DocumentVerificationSystemApi.Service
 {
-	private readonly AppDbContext _context;
-	private readonly OcrService _ocrService;
-	private readonly GeminiServices _geminiServices;
-	private readonly IHttpContextAccessor _httpContextAccessor;
-	public FileService(AppDbContext context, OcrService ocrService, GeminiServices geminiServices, IHttpContextAccessor httpContextAccessor)
+	public class FileService
 	{
-		_context = context;
-		_ocrService = ocrService;
-		_geminiServices = geminiServices;
-		_httpContextAccessor = httpContextAccessor;
-	}
+		private readonly AppDbContext _context;
+		private readonly OcrService _ocrService;
+		private readonly GeminiServices _geminiServices;
+		private readonly IHttpContextAccessor _httpContextAccessor;
 
-	[Authorize]
-	public async Task<FileUploadResponse> UploadFileAsync(FileUploadRequest request)
-	{
-		try
+		public FileService(AppDbContext context, OcrService ocrService, GeminiServices geminiServices, IHttpContextAccessor httpContextAccessor)
 		{
+			_context = context;
+			_ocrService = ocrService;
+			_geminiServices = geminiServices;
+			_httpContextAccessor = httpContextAccessor;
+		}
 
+		// --- 1. ADIM: DOSYAYI YÜKLE VE ANALİZ ET (Veritabanına Dosya Olarak Kaydet) ---
+		public async Task<FileUploadResponse> AnalyzeFileAsync(FileUploadRequest request)
+		{
+			// Validasyonlar
 			if (request.File == null || request.File.Length == 0)
-			{
-				return new FileUploadResponse { Success = false, Message = "Dosya gönderilmedi" };
-			}
+				return new FileUploadResponse { Success = false, Message = "Dosya yok" };
 
 			var tenant = await _context.Tanets.FirstOrDefaultAsync(t => t.Id == request.TanetId);
 			if (tenant == null)
-			{
-				return new FileUploadResponse { Success = false, Message = "Geçersiz tenant ID" };
-			}
+				return new FileUploadResponse { Success = false, Message = "Geçersiz Tenant" };
 
-			var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".pdf" };
-			var fileExtension = Path.GetExtension(request.File.FileName).ToLowerInvariant();
-			if (!allowedExtensions.Contains(fileExtension))
+			try
 			{
+				// Dosyayı Byte'a çevir
+				byte[] fileData;
+				using (var memoryStream = new MemoryStream())
+				{
+					await request.File.CopyToAsync(memoryStream);
+					fileData = memoryStream.ToArray();
+				}
+
+				// OCR İşlemi
+				var ocrText = await _ocrService.ReadTextAsync(fileData);
+
+				// Gemini AI İşlemi
+				string prompt = _geminiServices.OlusturVergiLevhasiPromptu(ocrText);
+				string geminiResult = await _geminiServices.SoruSorAsync(prompt);
+
+				if (string.IsNullOrEmpty(geminiResult))
+					return new FileUploadResponse { Success = false, Message = "Yapay zeka yanıt vermedi." };
+
+				// Dosyayı UploadFiles tablosuna kaydet
+				var userId = Guid.Parse(_httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString());
+				var newFileId = Guid.NewGuid();
+				var fileExtension = Path.GetExtension(request.File.FileName).ToLowerInvariant();
+
+				var uploadFile = new UploadFilesEntity
+				{
+					Id = newFileId,
+					CreaterId = userId,
+					FileName = request.File.FileName,
+					FileExtension = fileExtension,
+					FileSize = request.File.Length,
+					FileData = fileData,
+					TanetId = request.TanetId,
+					OcrText = ocrText,
+					AnalysisResult = geminiResult,
+					CreatedDate = DateTime.UtcNow,
+					IsDeleted = false
+				};
+
+				_context.UploadFiles.Add(uploadFile);
+				await _context.SaveChangesAsync();
+
+				// Geriye dosya ID'si ve analiz sonucunu dön
 				return new FileUploadResponse
 				{
-					Success = false,
-					Message = $"Desteklenmeyen format. İzin verilenler: {string.Join(", ", allowedExtensions)}"
+					Success = true,
+					Message = "Analiz tamamlandı. Kaydetmek için butonu kullanın.",
+					File = new DocumentVerificationSystemApi.Models.FileInfo
+					{
+						Id = uploadFile.Id,
+						FileName = uploadFile.FileName,
+						AnalysisResult = geminiResult
+					}
 				};
 			}
-
-			const long maxFileSize = 100 * 1024 * 1024;
-			if (request.File.Length > maxFileSize)
+			catch (Exception ex)
 			{
-				return new FileUploadResponse { Success = false, Message = "Dosya boyutu 100 MB'dan büyük olamaz" };
+				return new FileUploadResponse { Success = false, Message = "Hata: " + ex.Message };
+			}
+		}
+
+		// --- 2. ADIM: SAVE BUTONUNA BASINCA DETAYLARI KAYDET ---
+		public async Task<FileUploadResponse> SaveDetailsAsync(SaveDetailsRequest request)
+		{
+			if (string.IsNullOrEmpty(request.AnalysisResult))
+				return new FileUploadResponse { Success = false, Message = "Analiz sonucu boş olamaz." };
+
+			// Dosyayı kontrol et
+			var existingFile = await _context.UploadFiles.FirstOrDefaultAsync(f => f.Id == request.FileId);
+			if (existingFile == null)
+				return new FileUploadResponse { Success = false, Message = "Dosya bulunamadı." };
+
+			try
+			{
+				// JSON Temizleme
+				string cleanJson = request.AnalysisResult.Replace("```json", "").Replace("```", "").Trim();
+				var details = JsonConvert.DeserializeObject<DetailsEntity>(cleanJson);
+
+				if (details != null)
+				{
+					details.Id = Guid.NewGuid();
+					details.UploadFileId = request.FileId;
+					details.TanetId = request.TanetId;
+					details.CreatedDate = DateTime.UtcNow;
+					details.IsDeleted = false;
+
+					_context.Details.Add(details);
+					await _context.SaveChangesAsync();
+
+					return new FileUploadResponse { Success = true, Message = "Veriler veritabanına başarıyla işlendi." };
+				}
+
+				return new FileUploadResponse { Success = false, Message = "JSON verisi uygun formatta değil." };
+			}
+			catch (Exception ex)
+			{
+				return new FileUploadResponse { Success = false, Message = "JSON Parse Hatası: " + ex.Message };
+			}
+		}
+		public async Task<PagedResult<DashboardDetailUser>> GetUserDetailsPagedAsync(Guid userId, string userRole, Guid tanetId, int pageNumber, int pageSize = 10)
+		{
+			// Details ve UploadFiles tablolarını birleştiriyoruz
+			var query = from d in _context.Details
+						join u in _context.UploadFiles on d.UploadFileId equals u.Id
+						where u.TanetId == tanetId && !d.IsDeleted && !u.IsDeleted
+						select new DashboardDetailUser
+						{
+							// ID Bilgileri
+							DetailId = d.Id,
+							FileId = u.Id,
+							CreaterId = u.CreaterId, // Admin kontrolü için şart
+
+							// Details Tablosundan Gelen Tüm Veriler
+							DocumentType = d.DocumentType,
+							TaxpayerType = d.TaxpayerType,
+							CompanyType = d.CompanyType,
+							CompanyName = d.CompanyName,
+							TaxNumber = d.TaxNumber,
+							TcIdentityNumber = d.TcIdentityNumber,
+							TaxOffice = d.TaxOffice,
+							ActivityCode = d.ActivityCode,
+							GrossIncome = d.GrossIncome,
+							TaxBase = d.TaxBase,
+							CalculatedTax = d.CalculatedTax,
+							AccruedTax = d.AccruedTax,
+							TaxPeriod = d.TaxPeriod,
+							ExtractedConfidence = d.ExtractedConfidence,
+							CreatedDate = d.CreatedDate,
+
+							// File Tablosundan Gelen Veriler
+							FileName = u.FileName,
+							FileExtension = u.FileExtension
+						};
+
+			// ROL KONTROLÜ: Admin değilse sadece kendi yüklediklerini görsün
+			if (userRole.ToLower() != "admin")
+			{
+				query = query.Where(x => x.CreaterId == userId);
 			}
 
-			byte[] fileData;
-			using (var memoryStream = new MemoryStream())
+			// Sayfalama İşlemleri
+			var totalCount = await query.CountAsync();
+
+			var items = await query
+				.OrderByDescending(x => x.CreatedDate)
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
+				.ToListAsync();
+
+			return new PagedResult<DashboardDetailUser>
 			{
-				await request.File.CopyToAsync(memoryStream);
-				fileData = memoryStream.ToArray();
-			}
-
-			var text = await _ocrService.ReadTextAsync(fileData);
-			var result = await _geminiServices.SoruSorAsync(text + " bu metni satır satır parçalayarak anlamlı bir yapıya getir.");
-
-			// 7. Kullanıcıyı Bulma
-			var userIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-			Guid userId = Guid.Parse(userIdClaim ?? Guid.Empty.ToString());
-
-			var uploadFile = new UploadFilesEntity
-			{
-				Id = Guid.NewGuid(),
-				CreaterId = userId,
-
-				OcrText = text,
-				AnalysisResult = result,
-				OcrCompleted = true,
-				OcrProcessedDate = DateTime.UtcNow,
-				IsValidDocument = !string.IsNullOrEmpty(text),
-
-				FileName = request.File.FileName,
-				FileExtension = fileExtension,
-				FileSize = request.File.Length,
-				FileData = fileData,
-				TanetId = request.TanetId,
-				IsDeleted = false,
-				CreatedDate = DateTime.UtcNow,
-				UpdatedDate = DateTime.UtcNow
+				Items = items,
+				TotalCount = totalCount,
+				PageNumber = pageNumber,
+				PageSize = pageSize
 			};
+		}
 
-			_context.UploadFiles.Add(uploadFile);
+		// --- 4. SİLME METODU ---
+		public async Task<FileUploadResponse> DeleteFileAsync(Guid fileId, Guid userId, string userRole, Guid tanetId)
+		{
+			var uploadFile = await _context.UploadFiles
+				.FirstOrDefaultAsync(f => f.Id == fileId && f.TanetId == tanetId && !f.IsDeleted);
+
+			if (uploadFile == null)
+				return new FileUploadResponse { Success = false, Message = "Dosya bulunamadı." };
+
+			if (userRole.ToLower() != "admin" && uploadFile.CreaterId != userId)
+			{
+				return new FileUploadResponse { Success = false, Message = "Bu dosyayı silme yetkiniz yok." };
+			}
+
+			uploadFile.IsDeleted = true;
+			uploadFile.UpdatedDate = DateTime.UtcNow;
+
+			var details = await _context.Details.Where(d => d.UploadFileId == fileId).ToListAsync();
+			foreach (var det in details)
+			{
+				det.IsDeleted = true;
+			}
+
 			await _context.SaveChangesAsync();
-
-			return new FileUploadResponse
-			{
-				Success = true,
-				Message = "Dosya yüklendi ve analiz tamamlandı.",
-
-				File = new DocumentVerificationSystemApi.Models.FileInfo
-				{
-					Id = uploadFile.Id,
-					FileName = uploadFile.FileName,
-					FileExtension = uploadFile.FileExtension,
-					FileSize = uploadFile.FileSize,
-					OcrCompleted = uploadFile.OcrCompleted,
-					IsValidDocument = uploadFile.IsValidDocument,
-					CreatedDate = uploadFile.CreatedDate,
-					AnalysisResult = result
-				}
-			};
+			return new FileUploadResponse { Success = true, Message = "Dosya başarıyla silindi." };
 		}
-		catch (Exception ex)
+
+		public async Task<UploadFilesEntity?> GetFileAsync(Guid fileId, Guid tanetId)
 		{
-			return new FileUploadResponse
-			{
-				Success = false,
-				Message = $"Bir hata oluştu: {ex.Message}"
-			};
+			return await _context.UploadFiles
+				.FirstOrDefaultAsync(f => f.Id == fileId && f.TanetId == tanetId && !f.IsDeleted);
 		}
-	}
-	/// <summary>
-	/// OCR işlemini yapar ve sonuçları kaydeder
-	/// </summary>
-	private async Task ProcessOcrAsync(Guid fileId)
-	{
-		try
+
+		public async Task<List<UploadFilesEntity>> GetFilesByTenantAsync(Guid tanetId)
 		{
-			var uploadFile = await _context.UploadFiles.FirstOrDefaultAsync(f => f.Id == fileId);
-			if (uploadFile == null) return;
-
-			// OCR işlemi (sadece görüntü formatları için)
-			var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff" };
-			if (imageExtensions.Contains(uploadFile.FileExtension.ToLower()))
-			{
-				var ocrText = await _ocrService.ReadTextAsync(uploadFile.FileData);
-				uploadFile.OcrText = ocrText;
-				uploadFile.OcrCompleted = true;
-				uploadFile.OcrProcessedDate = DateTime.UtcNow;
-
-				// Gemini ile analiz yap
-				if (!string.IsNullOrWhiteSpace(ocrText))
-				{
-					var analysisPrompt = $"{ocrText} Bu metni analiz ederek belgenin geçerli olup olmadığını ve sonuçları JSON formatında döndür.";
-					var analysisResult = await _geminiServices.SoruSorAsync(analysisPrompt);
-					uploadFile.AnalysisResult = analysisResult;
-
-					// Basit validasyon kontrolü (analiz sonucuna göre)
-					uploadFile.IsValidDocument = !string.IsNullOrWhiteSpace(ocrText) && ocrText.Length > 10;
-				}
-
-				uploadFile.UpdatedDate = DateTime.UtcNow;
-				await _context.SaveChangesAsync();
-			}
-			else
-			{
-				// PDF veya diğer formatlar için OCR yapılamıyor
-				uploadFile.OcrCompleted = true;
-				uploadFile.OcrProcessedDate = DateTime.UtcNow;
-				uploadFile.OcrText = "Bu dosya formatı için OCR işlemi desteklenmiyor.";
-				await _context.SaveChangesAsync();
-			}
+			return await _context.UploadFiles
+				.Where(f => f.TanetId == tanetId && !f.IsDeleted)
+				.OrderByDescending(f => f.CreatedDate)
+				.ToListAsync();
 		}
-		catch (Exception ex)
-		{
-			// Hata durumunda kaydı güncelle
-			var uploadFile = await _context.UploadFiles.FirstOrDefaultAsync(f => f.Id == fileId);
-			if (uploadFile != null)
-			{
-				uploadFile.OcrCompleted = true;
-				uploadFile.OcrText = $"OCR işlemi sırasında hata oluştu: {ex.Message}";
-				uploadFile.UpdatedDate = DateTime.UtcNow;
-				await _context.SaveChangesAsync();
-			}
-		}
-	}
-
-	/// <summary>
-	/// Dosya bilgilerini getirir
-	/// </summary>
-	public async Task<UploadFilesEntity> GetFileAsync(Guid fileId, Guid tanetId)
-	{
-		return await _context.UploadFiles
-			.Include(f => f.Tanet)
-			.FirstOrDefaultAsync(f => f.Id == fileId && f.TanetId == tanetId && !f.IsDeleted);
-	}
-
-	/// <summary>
-	/// Tenant'a ait tüm dosyaları getirir
-	/// </summary>
-	public async Task<List<UploadFilesEntity>> GetFilesByTenantAsync(Guid tanetId)
-	{
-		return await _context.UploadFiles
-			.Where(f => f.TanetId == tanetId && !f.IsDeleted)
-			.OrderByDescending(f => f.CreatedDate)
-			.ToListAsync();
-	}
-
-	/// <summary>
-	/// Dosya siler (soft delete)
-	/// </summary>
-	public async Task<bool> DeleteFileAsync(Guid fileId, Guid tanetId)
-	{
-		var uploadFile = await _context.UploadFiles
-			.FirstOrDefaultAsync(f => f.Id == fileId && f.TanetId == tanetId && !f.IsDeleted);
-
-		if (uploadFile == null)
-			return false;
-
-		uploadFile.IsDeleted = true;
-		uploadFile.UpdatedDate = DateTime.UtcNow;
-		await _context.SaveChangesAsync();
-
-		return true;
 	}
 }

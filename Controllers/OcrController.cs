@@ -18,7 +18,7 @@ namespace DocumentVerificationSystemApi.Controllers
 		}
 
 
-		[HttpPost("image2")]
+		[HttpPost("ImageAnalyze")]
 		[Consumes("multipart/form-data")]
 		public async Task<IActionResult> ReadImage([FromForm] OcrImageRequest request)
 		{
@@ -41,7 +41,8 @@ namespace DocumentVerificationSystemApi.Controllers
 
 			// OCR işlemi yap
 			var text = await _ocrService.ReadTextAsync(imageBytes);
-			var result = _geminiServices.SoruSorAsync(text + "bu metni satır satır parçalayarak anlamlı bir yapıya getir.");
+			string prompt = text + _geminiServices.OlusturVergiLevhasiPromptu;
+			var result = await _geminiServices.SoruSorAsync(prompt);
 			return Ok(new { result, text });
 		}
 	}

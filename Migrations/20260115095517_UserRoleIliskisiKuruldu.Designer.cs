@@ -4,6 +4,7 @@ using DocumentVerificationSystemApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DocumentVerificationSystemApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260115095517_UserRoleIliskisiKuruldu")]
+    partial class UserRoleIliskisiKuruldu
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,78 +24,6 @@ namespace DocumentVerificationSystemApi.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("DocumentVerificationSystemApi.Entity.DetailsEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal?>("AccruedTax")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("ActivityCode")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal?>("CalculatedTax")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("CompanyName")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CompanyType")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("DocumentType")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<float?>("ExtractedConfidence")
-                        .HasColumnType("real");
-
-                    b.Property<decimal?>("GrossIncome")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid>("TanetId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal?>("TaxBase")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("TaxNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TaxOffice")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TaxPeriod")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TaxpayerType")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TcIdentityNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("UpdatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("UploadFileId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TanetId");
-
-                    b.HasIndex("UploadFileId");
-
-                    b.ToTable("Details");
-                });
 
             modelBuilder.Entity("DocumentVerificationSystemApi.Entity.TanetEntity", b =>
                 {
@@ -249,25 +180,6 @@ namespace DocumentVerificationSystemApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Roles");
-                });
-
-            modelBuilder.Entity("DocumentVerificationSystemApi.Entity.DetailsEntity", b =>
-                {
-                    b.HasOne("DocumentVerificationSystemApi.Entity.TanetEntity", "Tanet")
-                        .WithMany()
-                        .HasForeignKey("TanetId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("DocumentVerificationSystemApi.Entity.UploadFilesEntity", "UploadFile")
-                        .WithMany()
-                        .HasForeignKey("UploadFileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tanet");
-
-                    b.Navigation("UploadFile");
                 });
 
             modelBuilder.Entity("DocumentVerificationSystemApi.Entity.UploadFilesEntity", b =>

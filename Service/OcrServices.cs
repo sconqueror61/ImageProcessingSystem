@@ -1,5 +1,5 @@
-﻿using Google.Cloud.Vision.V1;
-using Google.Apis.Auth.OAuth2;
+﻿using Google.Apis.Auth.OAuth2;
+using Google.Cloud.Vision.V1;
 
 namespace DocumentVerificationSystemApi.Service
 {
@@ -16,7 +16,6 @@ namespace DocumentVerificationSystemApi.Service
 				"gleaming-store-484008-e8-842c6cc03b7b.json"
 			);
 
-			// Google Cloud Vision API istemcisini kimlik bilgileri ile oluştur
 			var credential = GoogleCredential.FromFile(jsonPath)
 				.CreateScoped(ImageAnnotatorClient.DefaultScopes);
 
@@ -28,9 +27,6 @@ namespace DocumentVerificationSystemApi.Service
 			_client = builder.Build();
 		}
 
-		/// <summary>
-		/// Dosya yolu ile OCR işlemi yapar (async)
-		/// </summary>
 		public async Task<string> ReadTextAsync(string filePath)
 		{
 			if (!File.Exists(filePath))
@@ -43,9 +39,6 @@ namespace DocumentVerificationSystemApi.Service
 			return response.FirstOrDefault()?.Description ?? "";
 		}
 
-		/// <summary>
-		/// Byte array ile OCR işlemi yapar (async)
-		/// </summary>
 		public async Task<string> ReadTextAsync(byte[] imageBytes)
 		{
 			var image = Image.FromBytes(imageBytes);
@@ -54,9 +47,6 @@ namespace DocumentVerificationSystemApi.Service
 			return response.FirstOrDefault()?.Description ?? "";
 		}
 
-		/// <summary>
-		/// Byte array ile OCR işlemi yapar (sync - eski metod)
-		/// </summary>
 		public string ReadText(byte[] imageBytes)
 		{
 			var image = Image.FromBytes(imageBytes);

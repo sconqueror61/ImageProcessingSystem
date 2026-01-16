@@ -2,6 +2,7 @@ using DocumentVerificationSystemApi.Models;
 using DocumentVerificationSystemApi.Service;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace DocumentVerificationSystemApi.Controllers
 {
@@ -17,49 +18,90 @@ namespace DocumentVerificationSystemApi.Controllers
 			_fileService = fileService;
 		}
 
-		[HttpPost("upload")]
+		[HttpPost("AnalyzeFile")]
 		[Consumes("multipart/form-data")]
-		public async Task<IActionResult> UploadFile([FromForm] FileUploadRequest request)
+		public async Task<IActionResult> AnalyzeFile([FromForm] FileUploadRequest request)
 		{
 			if (request == null || request.File == null)
 			{
-				return BadRequest(new { message = "Geçersiz istek" });
+				return BadRequest(new { success = false, message = "Geçersiz istek: Dosya yok." });
 			}
 
-			var result = await _fileService.UploadFileAsync(request);
+			var result = await _fileService.AnalyzeFileAsync(request);
 
 			if (!result.Success)
 			{
-				return BadRequest(new { message = result.Message });
+				return BadRequest(result);
 			}
 
 			return Ok(result);
 		}
 
-		[HttpGet("{fileId}")]
-		public async Task<IActionResult> GetFile(Guid fileId, [FromQuery] Guid tanetId)
+		// 2. KAYDET (Angular: Sarı Buton)
+		[HttpPost("SaveDetails")]
+		public async Task<IActionResult> SaveDetails([FromBody] SaveDetailsRequest request)
+		{
+			if (request == null)
+			{
+				return BadRequest(new { success = false, message = "İstek boş olamaz." });
+			}
+
+			var result = await _fileService.SaveDetailsAsync(request);
+
+			if (!result.Success)
+			{
+				return BadRequest(result);
+			}
+
+			return Ok(result);
+		}
+
+		[HttpGet("dashboard-details")]
+		public async Task<IActionResult> GetDashboardDetails([FromQuery] Guid tanetId, [FromQuery] int page = 1)
+		{
+
+			var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+			if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+			Guid userId = Guid.Parse(userIdClaim);
+
+			var roleClaim = User.FindFirst(ClaimTypes.Role)?.Value;
+			string userRole = roleClaim ?? "User";
+
+			var result = await _fileService.GetUserDetailsPagedAsync(userId, userRole, tanetId, page);
+
+			return Ok(result);
+		}
+
+		[HttpDelete("{fileId}")]
+		public async Task<IActionResult> DeleteFile(Guid fileId, [FromQuery] Guid tanetId)
+		{
+			var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+			var roleClaim = User.FindFirst(ClaimTypes.Role)?.Value;
+
+			if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+
+			Guid userId = Guid.Parse(userIdClaim);
+			string userRole = roleClaim ?? "User";
+
+			var result = await _fileService.DeleteFileAsync(fileId, userId, userRole, tanetId);
+
+			if (!result.Success)
+				return BadRequest(result);
+
+			return Ok(result);
+		}
+
+		[HttpGet("{fileId}/download")]
+		public async Task<IActionResult> DownloadFile(Guid fileId, [FromQuery] Guid tanetId)
 		{
 			var file = await _fileService.GetFileAsync(fileId, tanetId);
 
-			if (file == null)
+			if (file == null || file.FileData == null)
 			{
 				return NotFound(new { message = "Dosya bulunamadı" });
 			}
 
-			return Ok(new
-			{
-				id = file.Id,
-				fileName = file.FileName,
-				fileExtension = file.FileExtension,
-				fileSize = file.FileSize,
-				ocrCompleted = file.OcrCompleted,
-				ocrText = file.OcrText,
-				ocrProcessedDate = file.OcrProcessedDate,
-				isValidDocument = file.IsValidDocument,
-				analysisResult = file.AnalysisResult,
-				createdDate = file.CreatedDate,
-				updatedDate = file.UpdatedDate
-			});
+			return File(file.FileData, "application/octet-stream", file.FileName);
 		}
 
 		[HttpGet("tenant/{tanetId}")]
@@ -80,32 +122,6 @@ namespace DocumentVerificationSystemApi.Controllers
 			}).ToList();
 
 			return Ok(fileList);
-		}
-
-		[HttpGet("{fileId}/download")]
-		public async Task<IActionResult> DownloadFile(Guid fileId, [FromQuery] Guid tanetId)
-		{
-			var file = await _fileService.GetFileAsync(fileId, tanetId);
-
-			if (file == null || file.FileData == null)
-			{
-				return NotFound(new { message = "Dosya bulunamadı" });
-			}
-
-			return File(file.FileData, "application/octet-stream", file.FileName);
-		}
-
-		[HttpDelete("{fileId}")]
-		public async Task<IActionResult> DeleteFile(Guid fileId, [FromQuery] Guid tanetId)
-		{
-			var result = await _fileService.DeleteFileAsync(fileId, tanetId);
-
-			if (!result)
-			{
-				return NotFound(new { message = "Dosya bulunamadı" });
-			}
-
-			return Ok(new { message = "Dosya başarıyla silindi" });
 		}
 	}
 }
